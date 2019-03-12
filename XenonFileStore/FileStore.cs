@@ -24,287 +24,258 @@ namespace XenonFileStore
         public CloudBlobContainer GetContainer(string container, bool publicAccess)
         {
             CloudBlobContainer containerReference = CloudStorageAccount.Parse(connectionString).CreateCloudBlobClient().GetContainerReference(publicAccess ? container.ToString() + "-public" : container.ToString());
-            if (containerReference.CreateIfNotExists((BlobRequestOptions)null, (OperationContext)null) & publicAccess)
+            if (containerReference.CreateIfNotExists() & publicAccess)
             {
                 CloudBlobContainer cloudBlobContainer = containerReference;
                 BlobContainerPermissions permissions =
                     new BlobContainerPermissions { PublicAccess = BlobContainerPublicAccessType.Blob };
-                cloudBlobContainer.SetPermissions(permissions, null, null, null);
+                cloudBlobContainer.SetPermissions(permissions);
             }
             return containerReference;
         }
 
-        public CloudBlockBlob GetBlob(string container, string filename, bool publicAcess)
+        public CloudBlockBlob GetBlob(string container, string filename, bool publicAccess)
         {
-            return GetContainer(container, publicAcess).GetBlockBlobReference(filename);
+            return GetContainer(container, publicAccess).GetBlockBlobReference(filename);
         }
 
-        public Task<Uri> PutFileAsync(string container, string filename, string filebody, bool publicAccess)
+        public Task<Uri> PutFileAsync(string container, string filename, string filebody, bool publicAccess = false)
+        {
+            var c = this.GetContainer(container, publicAccess);
+            return this.PutFileAsync(c, filename, filebody);
+        }
+
+        public Task<Uri> PutFileAsync(string container, string filename, Stream filebody, bool publicAccess = false)
+        {
+            var c = this.GetContainer(container, publicAccess);
+            return this.PutFileAsync(c, filename, filebody);
+        }
+
+        public Task<Uri> PutFileAsync(string container, string filename, string filepath, AccessCondition accessCondition, bool publicAccess = false)
+        {
+            var c = this.GetContainer(container, publicAccess);
+            return this.PutFileAsync(c, filename, filepath, accessCondition);
+        }
+
+        public Task<string> GetFileAsStringAsync(string container, string filename, Encoding encoding, bool publicAccess = false)
+        {
+            var c = this.GetContainer(container, publicAccess);
+            return this.GetFileAsStringAsync(c, filename, encoding);
+        }
+
+        public Task<FileItem> GetFileAsync(string container, string filename, Stream target, bool publicAccess = false)
+        {
+            var c = this.GetContainer(container, publicAccess);
+            return this.GetFileAsync(c, filename, target);
+        }
+
+        public Task<bool> DeleteFileAsync(string container, string filename, bool publicAccess = false)
+        {
+            var c = this.GetContainer(container, publicAccess);
+            return this.DeleteFileAsync(c, filename);
+        }
+
+        public IEnumerable<FileItem> ListFiles(string container, string prefix = null, bool publicAccess = false)
+        {
+            var c = this.GetContainer(container, publicAccess);
+            return this.ListFiles(c, prefix);
+        }
+
+        public Uri GetUrl(string container, string filename)
+        {
+            var c = this.GetContainer(container, true);
+            return this.GetUrl(c, filename);
+        }
+
+        public Task<bool> ExistsAsync(string container, string filename, bool publicAccess = false)
+        {
+            var c = this.GetContainer(container, publicAccess);
+            return this.ExistsAsync(c, filename);
+        }
+
+        public Task DeleteContainerAsync(string container, bool publicAccess = false)
+        {
+            return GetContainer(container, publicAccess).DeleteIfExistsAsync();
+        }
+
+        #region GuidMethods
+
+        public Task<Uri> PutFileAsync(Guid containerGuid, string filename, string filebody, bool publicAccess = false)
+        {
+            var c = this.GetContainer(containerGuid, publicAccess);
+            return this.PutFileAsync(c, filename, filebody);
+        }
+
+        public Task<Uri> PutFileAsync(Guid containerGuid, string filename, Stream filebody, bool publicAccess = false)
+        {
+            var c = this.GetContainer(containerGuid, publicAccess);
+            return this.PutFileAsync(c, filename, filebody);
+        }
+
+        public Task<Uri> PutFileAsync(Guid containerGuid, string filename, string filepath, AccessCondition accessCondition, bool publicAccess)
+        {
+            var c = this.GetContainer(containerGuid, publicAccess);
+            return this.PutFileAsync(c, filename, filepath, accessCondition);
+        }
+
+        public Task<string> GetFileAsStringAsync(Guid containerGuid, string filename, Encoding encoding, bool publicAccess = false)
+        {
+            var c = this.GetContainer(containerGuid, publicAccess);
+            return this.GetFileAsStringAsync(c, filename, encoding);
+        }
+
+        public Task<FileItem> GetFileAsync(Guid containerGuid, string filename, Stream target, bool publicAccess = false)
+        {
+            var c = this.GetContainer(containerGuid, publicAccess);
+            return this.GetFileAsync(c, filename, target);
+        }
+
+        public Task<bool> DeleteFileAsync(Guid containerGuid, string filename, bool publicAccess = false)
+        {
+            var c = this.GetContainer(containerGuid, publicAccess);
+            return this.DeleteFileAsync(c, filename);
+        }
+
+        public IEnumerable<FileItem> ListFiles(Guid containerGuid, string prefix = null, bool publicAccess = false)
+        {
+            var c = this.GetContainer(containerGuid, publicAccess);
+            return this.ListFiles(c, prefix);
+        }
+
+        public Uri GetUrl(Guid containerGuid, string filename)
+        {
+            var c = this.GetContainer(containerGuid, true);
+            return this.GetUrl(c, filename);
+        }
+
+        public Task<bool> Exists(Guid containerGuid, string filename, bool publicAccess = false)
+        {
+            var c = this.GetContainer(containerGuid, publicAccess);
+            return this.ExistsAsync(c, filename);
+        }
+
+        public Task DeleteContainerAsync(Guid containerGuid, bool publicAccess)
+        {
+            return GetContainer(containerGuid, publicAccess).DeleteIfExistsAsync();
+        }
+
+        private CloudBlobContainer GetContainer(Guid containerGuid, bool publicAccess)
+        {
+            return this.GetContainer(containerGuid.ToString(), publicAccess);
+        }
+
+        #endregion
+
+        private StreamReader CreateReader(Stream stream, Encoding encoding)
+        {
+            return new StreamReader(stream, encoding, true, 1024, true);
+        }
+
+        private CloudBlockBlob GetBlob(CloudBlobContainer container, string filename)
+        {
+            return container.GetBlockBlobReference(filename);
+        }
+
+        private async Task<Uri> PutFileAsync(CloudBlobContainer container, string filename, string filebody)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(filebody);
-            var ret = PutFileAsync(container, filename, new MemoryStream(bytes), publicAccess);
-            return ret;
+            using (var stream = new MemoryStream(bytes))
+            {
+                var ret = await PutFileAsync(container, filename, stream).ConfigureAwait(false);
+                return ret;
+            }
         }
 
-        public Task<Uri> PutFileAsync(string container, string filename, Stream filebody)
+        private async Task<Uri> PutFileAsync(CloudBlobContainer container, string filename, Stream filebody)
         {
-            var ret = PutFileAsync(container, filename, filebody, false);
-            return ret;
-        }
-
-        public async Task<Uri> PutFileAsync(string container, string filename, Stream filebody, bool publicAcess)
-        {
-            CloudBlockBlob blockBlob = GetBlob(container, filename, publicAcess);
+            CloudBlockBlob blockBlob = GetBlob(container, filename);
             await blockBlob.UploadFromStreamAsync(filebody).ConfigureAwait(false);
             blockBlob.Properties.ContentType = MimeMapping.GetMimeMapping(filename);
-            blockBlob.SetProperties((AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
+            blockBlob.SetProperties();
             return blockBlob.Uri;
         }
 
-        public Uri PutFile(string container, string filename, string filepath, AccessCondition accessCondition, bool publicAcess)
+        private async Task<Uri> PutFileAsync(CloudBlobContainer container, string filename, string filepath, AccessCondition accessCondition)
         {
-            CloudBlockBlob blob = GetBlob(container, filename, publicAcess);
-            blob.UploadFromFile(filepath, accessCondition, (BlobRequestOptions)null, (OperationContext)null);
+            CloudBlockBlob blob = GetBlob(container, filename);
+            await blob
+                .UploadFromFileAsync(filepath, accessCondition, default(BlobRequestOptions), default(OperationContext))
+                .ConfigureAwait(false);
             blob.Properties.ContentType = MimeMapping.GetMimeMapping(filename);
-            blob.SetProperties((AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
+            blob.SetProperties();
             return blob.Uri;
         }
 
-        public string GetFileAsString(string container, string filename, bool publicAccess)
+        private async Task<string> GetFileAsStringAsync(CloudBlobContainer container, string filename, Encoding encoding)
         {
-            MemoryStream memoryStream = new MemoryStream();
-            GetFile(container, filename, (Stream)memoryStream);
-            memoryStream.Position = 0L;
-            StreamReader streamReader = new StreamReader((Stream)memoryStream);
-            string end = streamReader.ReadToEnd();
-            streamReader.Close();
-            memoryStream.Close();
-            return end;
+            using (MemoryStream memoryStream = new MemoryStream())
+            {
+                await GetFileAsync(container, filename, memoryStream).ConfigureAwait(false);
+                memoryStream.Position = 0L;
+
+                using (StreamReader streamReader = this.CreateReader(memoryStream, encoding))
+                {
+                    string ret = await streamReader.ReadToEndAsync().ConfigureAwait(false);
+                    return ret;
+                }
+            }
         }
 
-        public FileItem GetFile(string container, string filename, Stream target)
+        private async Task<FileItem> GetFileAsync(CloudBlobContainer container, string filename, Stream target)
         {
-            return GetFile(container, filename, target, false);
-        }
+            CloudBlockBlob blob = GetBlob(container, filename);
+            await blob.FetchAttributesAsync().ConfigureAwait(false);
 
-        public FileItem GetFile(string container, string filename, Stream target, bool publicAccess)
-        {
-            CloudBlockBlob blob = GetBlob(container, filename, publicAccess);
-            blob.FetchAttributes((AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
-            FileItem fileItem = new FileItem()
+            FileItem fileItem = new FileItem
             {
                 Uri = blob.Uri,
                 ContentType = blob.Properties.ContentType,
                 LastModified = blob.Properties.LastModified,
                 Length = blob.Properties.Length,
                 Name = blob.Name,
-                Container = container
+                Container = container.Name,
             };
-            blob.DownloadToStream(target, null, null, null);
+
+            await blob.DownloadToStreamAsync(target).ConfigureAwait(false);
             return fileItem;
         }
 
-        public bool DeleteFile(string container, string filename)
+        private async Task<bool> DeleteFileAsync(CloudBlobContainer container, string filename)
         {
-            return DeleteFile(container, filename, false);
-        }
-
-        public bool DeleteFile(string container, string filename, bool publicAccess)
-        {
-            CloudBlockBlob blob = GetBlob(container, filename, publicAccess);
-            if (!blob.Exists((BlobRequestOptions)null, (OperationContext)null))
+            CloudBlockBlob blob = GetBlob(container, filename);
+            bool exists = await blob.ExistsAsync().ConfigureAwait(false);
+            if (!exists)
+            {
                 return false;
-            blob.Delete(DeleteSnapshotsOption.None, (AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
-            return true;
-        }
-
-        public List<FileItem> ListFiles(string container)
-        {
-            return ListFiles(container, (string)null, false);
-        }
-
-        public List<FileItem> ListFiles(string container, bool publicAccess)
-        {
-            return ListFiles(container, (string)null, publicAccess);
-        }
-
-        public List<FileItem> ListFiles(string container, string prefix)
-        {
-            return ListFiles(container, prefix, false);
-        }
-
-        public List<FileItem> ListFiles(string container, string prefix, bool publicAccess)
-        {
-            var cont = GetContainer(container, publicAccess);
-            var blobs = cont.ListBlobs(prefix, useFlatBlobListing: true);
-            var cblobs = blobs.Select(b => b as CloudBlockBlob);
-            return cblobs.Select(c => new FileItem()
-            {
-                Uri = c.Uri,
-                Container = container,
-                ContentType = c.Properties.ContentType,
-                Name = c.Name,
-                LastModified = c.Properties.LastModified,
-                Length = c.Properties.Length
-            }).OrderBy<FileItem, string>((Func<FileItem, string>)(f => f.Name)).ToList<FileItem>();
-        }
-
-        public Uri GetUrl(string container, string filename)
-        {
-            return new Uri(GetContainer(container, true).Uri.ToString() + "/" + filename);
-        }
-
-        public bool Exists(string container, string filename, bool publicAccess)
-        {
-            return GetBlob(container, filename, publicAccess).Exists((BlobRequestOptions)null, (OperationContext)null);
-        }
-
-        public void DeleteContainer(string container, bool publicAccess)
-        {
-            GetContainer(container, publicAccess).DeleteIfExists((AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
-        }
-
-        #region GuidMethods
-
-        public Task<Uri> PutFileAsync(Guid containerGuid, string filename, string filebody, bool publicAccess)
-        {
-            byte[] bytes = Encoding.UTF8.GetBytes(filebody);
-            var ret = PutFileAsync(containerGuid, filename, new MemoryStream(bytes), publicAccess);
-            return ret;
-        }
-
-        public Task<Uri> PutFileAsync(Guid containerGuid, string filename, Stream filebody)
-        {
-            var ret = PutFileAsync(containerGuid, filename, filebody, false);
-            return ret;
-        }
-
-        public async Task<Uri> PutFileAsync(Guid containerGuid, string filename, Stream filebody, bool publicAcess)
-        {
-            CloudBlockBlob blockBlob = GetBlob(containerGuid, filename, publicAcess);
-            await blockBlob.UploadFromStreamAsync(filebody).ConfigureAwait(false);
-            blockBlob.Properties.ContentType = MimeMapping.GetMimeMapping(filename);
-            blockBlob.SetProperties((AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
-            return blockBlob.Uri;
-        }
-
-        public Uri PutFile(Guid containerGuid, string filename, string filepath, AccessCondition accessCondition, bool publicAcess)
-        {
-            CloudBlockBlob blob = GetBlob(containerGuid, filename, publicAcess);
-            blob.UploadFromFile(filepath, accessCondition, (BlobRequestOptions)null, (OperationContext)null);
-            blob.Properties.ContentType = MimeMapping.GetMimeMapping(filename);
-            blob.SetProperties((AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
-            return blob.Uri;
-        }
-
-        public string GetFileAsString(Guid containerGuid, string filename, bool publicAccess)
-        {
-            MemoryStream memoryStream = new MemoryStream();
-            GetFile(containerGuid, filename, (Stream)memoryStream);
-            memoryStream.Position = 0L;
-            StreamReader streamReader = new StreamReader((Stream)memoryStream);
-            string end = streamReader.ReadToEnd();
-            streamReader.Close();
-            memoryStream.Close();
-            return end;
-        }
-
-        public FileItem GetFile(Guid containerGuid, string filename, Stream target)
-        {
-            return GetFile(containerGuid, filename, target, false);
-        }
-
-        public FileItem GetFile(Guid containerGuid, string filename, Stream target, bool publicAccess)
-        {
-            CloudBlockBlob blob = GetBlob(containerGuid, filename, publicAccess);
-            blob.FetchAttributes((AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
-            FileItem fileItem = new FileItem()
-            {
-                Uri = blob.Uri,
-                ContentType = blob.Properties.ContentType,
-                LastModified = blob.Properties.LastModified,
-                Length = blob.Properties.Length,
-                Name = blob.Name
-            };
-            blob.DownloadToStream(target, (AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
-            return fileItem;
-        }
-
-        public bool DeleteFile(Guid containerGuid, string filename)
-        {
-            return DeleteFile(containerGuid, filename, false);
-        }
-
-        public bool DeleteFile(Guid containerGuid, string filename, bool publicAccess)
-        {
-            CloudBlockBlob blob = GetBlob(containerGuid, filename, publicAccess);
-            if (!blob.Exists((BlobRequestOptions)null, (OperationContext)null))
-                return false;
-            blob.Delete(DeleteSnapshotsOption.None, (AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
-            return true;
-        }
-
-        public List<FileItem> ListFiles(Guid containerGuid)
-        {
-            return ListFiles(containerGuid, (string)null, false);
-        }
-
-        public List<FileItem> ListFiles(Guid containerGuid, bool publicAccess)
-        {
-            return ListFiles(containerGuid, (string)null, publicAccess);
-        }
-
-        public List<FileItem> ListFiles(Guid containerGuid, string prefix)
-        {
-            return ListFiles(containerGuid, prefix, false);
-        }
-
-        public List<FileItem> ListFiles(Guid containerGuid, string prefix, bool publicAccess)
-        {
-            return GetContainer(containerGuid, publicAccess).ListBlobs(prefix, publicAccess, BlobListingDetails.None, (BlobRequestOptions)null, (OperationContext)null).Select<IListBlobItem, CloudBlockBlob>((Func<IListBlobItem, CloudBlockBlob>)(b => b as CloudBlockBlob)).Select<CloudBlockBlob, FileItem>((Func<CloudBlockBlob, FileItem>)(c => new FileItem()
-            {
-                Uri = c.Uri,
-                Container = containerGuid.ToString(),
-                ContentType = c.Properties.ContentType,
-                Name = c.Name,
-                LastModified = c.Properties.LastModified,
-                Length = c.Properties.Length
-            })).OrderBy<FileItem, string>((Func<FileItem, string>)(f => f.Name)).ToList<FileItem>();
-        }
-
-        public Uri GetUrl(Guid containerGuid, string filename)
-        {
-            return new Uri(GetContainer(containerGuid, true).Uri.ToString() + "/" + filename);
-        }
-
-        public bool Exists(Guid containerGuid, string filename, bool publicAccess)
-        {
-            return GetBlob(containerGuid, filename, publicAccess).Exists((BlobRequestOptions)null, (OperationContext)null);
-        }
-
-        public void DeleteContainer(Guid containerGuid, bool publicAccess)
-        {
-            GetContainer(containerGuid, publicAccess).DeleteIfExists((AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
-        }
-
-        private CloudBlobContainer GetContainer(Guid containerGuid, bool publicAccess)
-        {
-            CloudBlobContainer containerReference = CloudStorageAccount.Parse(connectionString).CreateCloudBlobClient().GetContainerReference(publicAccess ? containerGuid.ToString() + "-public" : containerGuid.ToString());
-            if (containerReference.CreateIfNotExists((BlobRequestOptions)null, (OperationContext)null) & publicAccess)
-            {
-                CloudBlobContainer cloudBlobContainer = containerReference;
-                BlobContainerPermissions permissions =
-                    new BlobContainerPermissions { PublicAccess = BlobContainerPublicAccessType.Blob };
-                cloudBlobContainer.SetPermissions(permissions, null);
             }
-            return containerReference;
+
+            await blob.DeleteAsync().ConfigureAwait(false);
+            return true;
         }
 
-        private CloudBlockBlob GetBlob(Guid containerGuid, string filename, bool publicAcess)
+        private IEnumerable<FileItem> ListFiles(CloudBlobContainer container, string prefix = null)
         {
-            return GetContainer(containerGuid, publicAcess).GetBlockBlobReference(filename);
+            var blobs = container.ListBlobs(prefix, useFlatBlobListing: true);
+            var cblobs = blobs.Select(b => b as CloudBlockBlob);
+            return cblobs.Select(c => new FileItem
+            {
+                Uri = c.Uri,
+                Container = container.Name,
+                ContentType = c.Properties.ContentType,
+                Name = c.Name,
+                LastModified = c.Properties.LastModified,
+                Length = c.Properties.Length,
+            }).OrderBy(f => f.Name);
         }
 
-        #endregion
+        public Uri GetUrl(CloudBlobContainer container, string filename)
+        {
+            return new Uri(container.Uri.ToString() + "/" + filename);
+        }
+
+        public Task<bool> ExistsAsync(CloudBlobContainer container, string filename)
+        {
+            return GetBlob(container, filename).ExistsAsync();
+        }
     }
 }
