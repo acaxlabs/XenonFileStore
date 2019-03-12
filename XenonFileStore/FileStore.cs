@@ -1,15 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Web;
-using Microsoft.WindowsAzure.Storage;
-using Microsoft.WindowsAzure.Storage.Blob;
-
+﻿
 namespace XenonFileStore
 {
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
+    using System.Text;
+    using System.Threading.Tasks;
+    using System.Web;
+
+    using Microsoft.WindowsAzure.Storage;
+    using Microsoft.WindowsAzure.Storage.Blob;
+
     public class FileStore
     {
         private readonly string connectionString;
@@ -37,23 +39,23 @@ namespace XenonFileStore
             return GetContainer(container, publicAcess).GetBlockBlobReference(filename);
         }
 
-        public async Task<Uri> PutFile(string container, string filename, string filebody, bool publicAccess)
+        public Task<Uri> PutFileAsync(string container, string filename, string filebody, bool publicAccess)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(filebody);
-            Uri uri = await PutFile(container, filename, (Stream)new MemoryStream(bytes), publicAccess);
-            return uri;
+            var ret = PutFileAsync(container, filename, new MemoryStream(bytes), publicAccess);
+            return ret;
         }
 
-        public async Task<Uri> PutFile(string container, string filename, Stream filebody)
+        public Task<Uri> PutFileAsync(string container, string filename, Stream filebody)
         {
-            Uri uri = await PutFile(container, filename, filebody, false);
-            return uri;
+            var ret = PutFileAsync(container, filename, filebody, false);
+            return ret;
         }
 
-        public async Task<Uri> PutFile(string container, string filename, Stream filebody, bool publicAcess)
+        public async Task<Uri> PutFileAsync(string container, string filename, Stream filebody, bool publicAcess)
         {
             CloudBlockBlob blockBlob = GetBlob(container, filename, publicAcess);
-            await blockBlob.UploadFromStreamAsync(filebody);
+            await blockBlob.UploadFromStreamAsync(filebody).ConfigureAwait(false);
             blockBlob.Properties.ContentType = MimeMapping.GetMimeMapping(filename);
             blockBlob.SetProperties((AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
             return blockBlob.Uri;
@@ -164,41 +166,23 @@ namespace XenonFileStore
 
         #region GuidMethods
 
-        private CloudBlobContainer GetContainer(Guid containerGuid, bool publicAccess)
-        {
-            CloudBlobContainer containerReference = CloudStorageAccount.Parse(connectionString).CreateCloudBlobClient().GetContainerReference(publicAccess ? containerGuid.ToString() + "-public" : containerGuid.ToString());
-            if (containerReference.CreateIfNotExists((BlobRequestOptions)null, (OperationContext)null) & publicAccess)
-            {
-                CloudBlobContainer cloudBlobContainer = containerReference;
-                BlobContainerPermissions permissions =
-                    new BlobContainerPermissions { PublicAccess = BlobContainerPublicAccessType.Blob };
-                cloudBlobContainer.SetPermissions(permissions, null);
-            }
-            return containerReference;
-        }
-
-        private CloudBlockBlob GetBlob(Guid containerGuid, string filename, bool publicAcess)
-        {
-            return GetContainer(containerGuid, publicAcess).GetBlockBlobReference(filename);
-        }
-
-        public async Task<Uri> PutFile(Guid containerGuid, string filename, string filebody, bool publicAccess)
+        public Task<Uri> PutFileAsync(Guid containerGuid, string filename, string filebody, bool publicAccess)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(filebody);
-            Uri uri = await PutFile(containerGuid, filename, (Stream)new MemoryStream(bytes), publicAccess);
-            return uri;
+            var ret = PutFileAsync(containerGuid, filename, new MemoryStream(bytes), publicAccess);
+            return ret;
         }
 
-        public async Task<Uri> PutFile(Guid containerGuid, string filename, Stream filebody)
+        public Task<Uri> PutFileAsync(Guid containerGuid, string filename, Stream filebody)
         {
-            Uri uri = await PutFile(containerGuid, filename, filebody, false);
-            return uri;
+            var ret = PutFileAsync(containerGuid, filename, filebody, false);
+            return ret;
         }
 
-        public async Task<Uri> PutFile(Guid containerGuid, string filename, Stream filebody, bool publicAcess)
+        public async Task<Uri> PutFileAsync(Guid containerGuid, string filename, Stream filebody, bool publicAcess)
         {
             CloudBlockBlob blockBlob = GetBlob(containerGuid, filename, publicAcess);
-            await blockBlob.UploadFromStreamAsync(filebody);
+            await blockBlob.UploadFromStreamAsync(filebody).ConfigureAwait(false);
             blockBlob.Properties.ContentType = MimeMapping.GetMimeMapping(filename);
             blockBlob.SetProperties((AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
             return blockBlob.Uri;
@@ -303,8 +287,24 @@ namespace XenonFileStore
             GetContainer(containerGuid, publicAccess).DeleteIfExists((AccessCondition)null, (BlobRequestOptions)null, (OperationContext)null);
         }
 
+        private CloudBlobContainer GetContainer(Guid containerGuid, bool publicAccess)
+        {
+            CloudBlobContainer containerReference = CloudStorageAccount.Parse(connectionString).CreateCloudBlobClient().GetContainerReference(publicAccess ? containerGuid.ToString() + "-public" : containerGuid.ToString());
+            if (containerReference.CreateIfNotExists((BlobRequestOptions)null, (OperationContext)null) & publicAccess)
+            {
+                CloudBlobContainer cloudBlobContainer = containerReference;
+                BlobContainerPermissions permissions =
+                    new BlobContainerPermissions { PublicAccess = BlobContainerPublicAccessType.Blob };
+                cloudBlobContainer.SetPermissions(permissions, null);
+            }
+            return containerReference;
+        }
+
+        private CloudBlockBlob GetBlob(Guid containerGuid, string filename, bool publicAcess)
+        {
+            return GetContainer(containerGuid, publicAcess).GetBlockBlobReference(filename);
+        }
+
         #endregion
     }
-
-    
 }
