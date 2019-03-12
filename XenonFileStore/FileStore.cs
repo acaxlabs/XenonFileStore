@@ -57,10 +57,10 @@ namespace XenonFileStore
             return this.PutFileAsync(c, filename, filepath, accessCondition);
         }
 
-        public Task<string> GetFileAsStringAsync(string container, string filename, Encoding encoding, bool publicAccess = false)
+        public Task<string> GetFileAsStringAsync(string container, string filename, bool publicAccess = false)
         {
             var c = this.GetContainer(container, publicAccess);
-            return this.GetFileAsStringAsync(c, filename, encoding);
+            return this.GetFileAsStringAsync(c, filename);
         }
 
         public Task<FileItem> GetFileAsync(string container, string filename, Stream target, bool publicAccess = false)
@@ -118,10 +118,10 @@ namespace XenonFileStore
             return this.PutFileAsync(c, filename, filepath, accessCondition);
         }
 
-        public Task<string> GetFileAsStringAsync(Guid containerGuid, string filename, Encoding encoding, bool publicAccess = false)
+        public Task<string> GetFileAsStringAsync(Guid containerGuid, string filename, bool publicAccess = false)
         {
             var c = this.GetContainer(containerGuid, publicAccess);
-            return this.GetFileAsStringAsync(c, filename, encoding);
+            return this.GetFileAsStringAsync(c, filename);
         }
 
         public Task<FileItem> GetFileAsync(Guid containerGuid, string filename, Stream target, bool publicAccess = false)
@@ -166,9 +166,9 @@ namespace XenonFileStore
 
         #endregion
 
-        private StreamReader CreateReader(Stream stream, Encoding encoding)
+        private StreamReader CreateReader(Stream stream)
         {
-            return new StreamReader(stream, encoding, true, 1024, true);
+            return new StreamReader(stream, Encoding.UTF8, true, 1024, true);
         }
 
         private CloudBlockBlob GetBlob(CloudBlobContainer container, string filename)
@@ -206,14 +206,14 @@ namespace XenonFileStore
             return blob.Uri;
         }
 
-        private async Task<string> GetFileAsStringAsync(CloudBlobContainer container, string filename, Encoding encoding)
+        private async Task<string> GetFileAsStringAsync(CloudBlobContainer container, string filename)
         {
             using (MemoryStream memoryStream = new MemoryStream())
             {
                 await GetFileAsync(container, filename, memoryStream).ConfigureAwait(false);
                 memoryStream.Position = 0L;
 
-                using (StreamReader streamReader = this.CreateReader(memoryStream, encoding))
+                using (StreamReader streamReader = this.CreateReader(memoryStream))
                 {
                     string ret = await streamReader.ReadToEndAsync().ConfigureAwait(false);
                     return ret;
